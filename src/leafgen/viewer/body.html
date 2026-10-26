@@ -1,0 +1,160 @@
+<div id="app">
+  <div id="stage">
+    <div id="hud"><div><h1 id="leafname">Leaf</h1><div class="sub" id="leafsub">generated outline &middot; VeinFlow veins, repaired &middot; bend drawn from the Pheno4D prior</div></div>
+      <div class="scale" id="scale"></div></div>
+    <div id="loading">loading meshes</div>
+  </div>
+  <div id="sheet">
+    <div class="row"><span class="label">Leaf</span><span class="row" id="leaves"></span></div>
+    <div class="row"><span class="label">Veins</span>
+      <button id="m-disp" aria-pressed="true">displacement</button>
+      <button id="m-bump" aria-pressed="false">normal map</button>
+      <button id="m-none" aria-pressed="false">none</button></div>
+    <div class="row"><span class="label">Light</span>
+      <button id="l-studio" aria-pressed="true">studio</button>
+      <button id="l-graze" aria-pressed="false">grazing</button>
+      <button id="l-back" aria-pressed="false">backlit</button></div>
+    <div class="row"><span class="label">Bend</span><label class="slider"><input id="bend" type="range" min="0" max="100" value="100" aria-label="Bend"><output id="bendv">100%</output></label></div>
+    <div class="row"><span class="label">Relief</span><label class="slider"><input id="ex" type="range" min="0.5" max="4" step="0.25" value="1" aria-label="Relief exaggeration"><output id="exv">x1</output></label></div>
+    <p class="note">Drag to turn, pinch to zoom. Top: quilted pillows between thin creases. Underside: pale raised ribs.</p>
+  </div>
+</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const DATA = JSON.parse(document.getElementById('leafdata').textContent);
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0b0d0b);
+const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 200);
+camera.position.set(6, -9, 8); camera.up.set(0, 0, 1);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.minDistance = 1.2; controls.maxDistance = 30;
+const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x1a2014, 0.6); scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffffff, 2.2); scene.add(key);
+const rim = new THREE.DirectionalLight(0xfff0d8, 1.4); scene.add(rim);
+const LIGHTS = {
+  studio: () => { hemi.intensity = 0.7; key.position.set(5, -6, 9); key.intensity = 1.5; rim.position.set(-4, 8, 3); rim.intensity = 1.4; },
+  graze: () => { hemi.intensity = 0.12; key.position.set(-10, 1, 0.9); key.intensity = 3.2; rim.position.set(4, 6, 2); rim.intensity = 0.3; },
+  back: () => { hemi.intensity = 0.25; key.position.set(1, 2, -10); key.intensity = 2.4; rim.position.set(0, -8, 6); rim.intensity = 0.8; },
+};
+const dec = (s, T) => { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return new T(u.buffer); };
+const loader = new THREE.TextureLoader();
+const tex = (src, color) => { const t = loader.load(src); if (color) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+const state = { leaf: 0, mode: 'disp', bend: 1, ex: 1, light: 'studio' };
+const leaves = DATA.map((d) => {
+  const P = dec(d.pos, Int16Array), N = dec(d.nrm, Int8Array), UV = dec(d.uv, Uint16Array), I = dec(d.idx, Uint32Array);
+  const n = d.n, bent = new Float32Array(n * 3), nb = new Float32Array(n * 3), flat = new Float32Array(n * 3), uv = new Float32Array(n * 2);
+  const [x0, x1, y0, y1] = d.box;
+  for (let i = 0; i < n; i++) {
+    for (let k = 0; k < 3; k++) { bent[3 * i + k] = P[3 * i + k] * d.ps; nb[3 * i + k] = N[3 * i + k] / 127; }
+    const u = UV[2 * i] / 65535, v = UV[2 * i + 1] / 65535; uv[2 * i] = u; uv[2 * i + 1] = v;
+    flat[3 * i] = x0 + u * (x1 - x0); flat[3 * i + 1] = y0 + v * (y1 - y0);
+  }
+  const TK = dec(d.tk, Uint8Array), tk = new Float32Array(n); for (let i = 0; i < n; i++) tk[i] = TK[i] / 255;
+  const r = d.relief, HT = dec(r.htop, Int16Array), HB = dec(r.hbot, Int16Array), ht = new Float32Array(n), hb = new Float32Array(n);
+  for (let i = 0; i < n; i++) { ht[i] = HT[i] / 20000 * 0.1; hb[i] = HB[i] / 20000 * 0.1; }  // mm -> cm
+  const prof = { crease: r.crease, rib: r.rib, pillow: r.pillow, lam: r.lam * 0.1, ht, hb, ctop: tex(r.ctop, true), cbot: tex(r.cbot, true), btop: tex(r.btop), bbot: tex(r.bbot) };
+  const group = new THREE.Group();
+  const shells = ['top', 'bot'].map((side) => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    const idx = side === 'top' ? I : I.slice().map((_, j, a) => a[j - (j % 3) + [0, 2, 1][j % 3]]);
+    g.setIndex(new THREE.BufferAttribute(idx, 1));
+    const mat = new THREE.MeshPhysicalMaterial({
+      bumpScale: 0,
+      // photos: the top is matte and velvety (trichomes), not glossy
+      roughness: side === 'top' ? 0.78 : 0.7, clearcoat: 0, clearcoatRoughness: 0.3,
+      sheen: side === 'top' ? 0.5 : 0.4, sheenColor: new THREE.Color(0xc8d8b0), side: THREE.FrontSide,
+    });
+    group.add(new THREE.Mesh(g, mat));
+    return { side, g, mat };
+  });
+  return { d, n, tk, bent, nb, flat, prof, shells, group };
+});
+function update() {
+  const L = leaves[state.leaf], t = state.bend, n = L.n, pr = L.prof, half = pr.lam / 2;
+  const blend = (flat, bentA, nbA, m) => {
+    const base = new Float32Array(m * 3), nrm = new Float32Array(m * 3);
+    for (let i = 0; i < m; i++) {
+      const nx = nbA[3 * i] * t, ny = nbA[3 * i + 1] * t, nz = nbA[3 * i + 2] * t + (1 - t), s = Math.hypot(nx, ny, nz);
+      nrm[3 * i] = nx / s; nrm[3 * i + 1] = ny / s; nrm[3 * i + 2] = nz / s;
+      for (let k = 0; k < 3; k++) base[3 * i + k] = flat[3 * i + k] * (1 - t) + bentA[3 * i + k] * t;
+    }
+    return [base, nrm];
+  };
+  const [base, nrm] = blend(L.flat, L.bent, L.nb, n);
+  for (const sh of L.shells) {
+    const pos = sh.g.attributes.position.array, sign = sh.side === 'top' ? 1 : -1, h = sh.side === 'top' ? pr.ht : pr.hb;
+    for (let i = 0; i < n; i++) {
+      const off = half * L.tk[i] + (state.mode === 'disp' ? h[i] * state.ex : 0);  // h is outward for both sides
+      for (let k = 0; k < 3; k++) pos[3 * i + k] = base[3 * i + k] + sign * nrm[3 * i + k] * off;
+    }
+    sh.g.attributes.position.needsUpdate = true; sh.g.computeVertexNormals(); sh.g.computeBoundingSphere();
+    sh.mat.map = sh.side === 'top' ? pr.ctop : pr.cbot; sh.mat.bumpMap = sh.side === 'top' ? pr.btop : pr.bbot;
+    // displacement carries the shape; a light bump keeps the creases thinner than the mesh step
+    sh.mat.bumpScale = state.mode === 'bump' ? 6.0 * state.ex : state.mode === 'disp' ? 2.0 * state.ex : 0;
+    sh.mat.needsUpdate = true;
+  }
+  const top = `midrib crease ${pr.crease.toFixed(2)} mm<br>areole pillow ${pr.pillow.toFixed(2)} mm`, bot = `underside rib ${pr.rib.toFixed(2)} mm`;
+  document.getElementById('scale').innerHTML = `base&ndash;tip ${L.d.length} mm<br>lamina ${(pr.lam * 10).toFixed(2)} mm, 0 at the edge<br>${top}<br>${bot}`;
+}
+let current = null;
+function recenter() {
+  current.group.position.set(0, 0, 0); current.group.updateMatrixWorld();
+  const c = new THREE.Box3().setFromObject(current.group).getCenter(new THREE.Vector3());
+  current.group.position.copy(c.negate()); current.group.updateMatrixWorld();
+}
+function showLeaf(k) {
+  if (current) scene.remove(current.group);
+  state.leaf = k; current = leaves[k]; scene.add(current.group); update(); recenter();
+  document.getElementById('leafname').textContent = current.d.name;
+  const r = new THREE.Box3().setFromObject(current.group).getBoundingSphere(new THREE.Sphere()).radius;
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  camera.position.copy(controls.target).addScaledVector(dir, r / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * 0.95);
+  document.querySelectorAll('#leaves button').forEach((b, i) => b.setAttribute('aria-pressed', i === k));
+}
+const lv = document.getElementById('leaves');
+DATA.forEach((d, i) => { const b = document.createElement('button'); b.textContent = d.name; b.onclick = () => showLeaf(i); lv.appendChild(b); });
+const group = (ids, fn) => ids.forEach((id) => document.getElementById(id).onclick = () => { ids.forEach((j) => document.getElementById(j).setAttribute('aria-pressed', j === id)); fn(id.split('-')[1]); });
+group(['m-disp', 'm-bump', 'm-none'], (m) => { state.mode = m; update(); });
+group(['l-studio', 'l-graze', 'l-back'], (l) => { state.light = l; LIGHTS[l](); });
+const bend = document.getElementById('bend'), ex = document.getElementById('ex');
+bend.oninput = () => { state.bend = bend.value / 100; document.getElementById('bendv').textContent = bend.value + '%'; update(); recenter(); };
+ex.oninput = () => { state.ex = +ex.value; document.getElementById('exv').textContent = 'x' + ex.value; update(); };
+// optional view from the URL (screenshots): #leaf=1&side=top|bottom&light=back&shot=1&spin=1
+const Q = new URLSearchParams(location.hash.slice(1));
+LIGHTS[Q.get('light') || 'studio'](); showLeaf(+(Q.get('leaf') || 0));
+if (Q.get('angle')) {  // turn the view about the vertical axis, in degrees
+  const p = camera.position.clone().sub(controls.target).applyAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(+Q.get('angle')));
+  camera.position.copy(controls.target).add(p);
+}
+if (Q.get('side')) {
+  const d = camera.position.distanceTo(controls.target) * 0.92;
+  camera.position.set(0, 0, Q.get('side') === 'bottom' ? -d : d); camera.up.set(0, 1, 0); camera.lookAt(0, 0, 0);
+}
+if (Q.get('title')) document.getElementById('leafname').textContent = Q.get('title');
+if (Q.get('sub')) document.getElementById('leafsub').textContent = Q.get('sub');
+if (Q.has('shot')) document.getElementById('sheet').hidden = true;
+if (Q.has('clean')) document.getElementById('hud').hidden = true;
+document.getElementById('loading').hidden = true;
+function resize() { const r = stage.getBoundingClientRect(); renderer.setSize(r.width, r.height, false); camera.aspect = r.width / Math.max(r.height, 1); camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(stage); resize();
+// spin: every leaf turns once about the vertical axis, then the next one comes
+const SPIN = Q.has('spin') ? 2 * Math.PI / (+Q.get('spin') > 1 ? +Q.get('spin') : 240) : 0;
+let turned = 0;
+window.leafStep = () => {  // one frame of the spin, also callable by a recorder
+  const p = camera.position.clone().sub(controls.target).applyAxisAngle(new THREE.Vector3(0, 0, 1), SPIN);
+  camera.position.copy(controls.target).add(p); turned += SPIN;
+  if (turned >= 2 * Math.PI - 1e-6) { turned = 0; showLeaf((state.leaf + 1) % leaves.length); }
+  controls.update(); renderer.render(scene, camera);
+};
+if (Q.has('frames')) window.leafStep();  // a recorder drives the frames itself
+else renderer.setAnimationLoop(() => (SPIN ? window.leafStep() : (controls.update(), renderer.render(scene, camera))));
+</script>

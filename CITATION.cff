@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "If you use this generator, please cite it as below, together with the datasets it learns from."
+title: "tomato-leaf-gen: a data-driven generator of 3D tomato leaflets"
+authors:
+  - family-names: Devidi
+    given-names: Alessandro
+version: 0.1.0
+date-released: 2026-10-26
+license: MIT
+repository-code: "https://github.com/aledevv/tomato-leaf-gen"
+references:
+  - type: article
+    title: "Resolving distinct genetic regulators of tomato leaf shape within a heteroblastic and ontogenetic context"
+    authors:
+      - family-names: Chitwood
+        given-names: Daniel H.
+    journal: "The Plant Cell"
+    year: 2014
+    doi: 10.1105/tpc.114.130112
+  - type: dataset
+    title: "Tomato leaf scans"
+    authors:
+      - family-names: Chitwood
+        given-names: Daniel H.
+    year: 2026
+    url: "https://zenodo.org/records/19656245"
+  - type: article
+    title: "Pheno4D: A spatio-temporal dataset of maize and tomato plant point clouds for phenotyping and advanced plant analysis"
+    authors:
+      - family-names: Schunck
+        given-names: David
+    journal: "PLOS ONE"
+    year: 2021
+    doi: 10.1371/journal.pone.0256340
