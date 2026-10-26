@@ -47,7 +47,7 @@ the drawing. The repaired drawing becomes a vein tree with flow-ranked branches.
 bulges like a pillow and the veins are the creases between them; on the underside the veins stand
 out as ribs, wider and higher with their order.
 
-![Upper side under grazing light and underside against the light](docs/figures/relief.jpg)
+![Upper side in studio light and underside against the light](docs/figures/relief.jpg)
 
 **4. Bend.** The bend is drawn from a prior, not predicted from the outline, which explains little
 of it. Real leaflets from Pheno4D are flattened onto normalised leaf coordinates, s along the
