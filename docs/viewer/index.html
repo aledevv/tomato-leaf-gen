@@ -83,6 +83,7 @@ const rim = new THREE.DirectionalLight(0xfff0d8, 1.4); scene.add(rim);
 const LIGHTS = {
   studio: () => { hemi.intensity = 0.7; key.position.set(5, -6, 9); key.intensity = 1.5; rim.position.set(-4, 8, 3); rim.intensity = 1.4; },
   graze: () => { hemi.intensity = 0.12; key.position.set(-10, 1, 0.9); key.intensity = 3.2; rim.position.set(4, 6, 2); rim.intensity = 0.3; },
+  under: () => { hemi.intensity = 0.25; key.position.set(5, -6, -9); key.intensity = 1.6; rim.position.set(-4, 8, -3); rim.intensity = 1.0; },  // studio, mirrored below
   back: () => { hemi.intensity = 0.25; key.position.set(1, 2, -10); key.intensity = 2.4; rim.position.set(0, -8, 6); rim.intensity = 0.8; },
 };
 const dec = (s, T) => { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return new T(u.buffer); };
