@@ -10,19 +10,48 @@ Schunck et al. 2021) for the bend.
 
 ## Try it
 
+To look before installing anything, open the [interactive viewer](https://aledevv.github.io/tomato-leaf-gen/viewer/).
+
+### Install
+
+Python 3.12. Three ways, all with the library versions of the experiments; the first two need the
+[weights](#weights-and-data) unzipped at the repository root (and `data.zip` for `evaluate.py`).
+
+With [uv](https://docs.astral.sh/uv/) (`uv.lock`):
+
 ```bash
 uv sync
 uv run generate.py
 ```
 
-To look before installing anything, open the [interactive viewer](https://aledevv.github.io/tomato-leaf-gen/viewer/).
-To generate, first put the [weights](#weights-and-data) in `weights/`. `generate.py` writes
-`samples/leaf_000.obj` and the following ones (millimetres, base at the origin, tip along +y,
-upper side and underside as one closed surface, albedo textures in the `.mtl`) and
-`samples/viewer.html`, a 3D viewer that opens in any browser. The settings at the top of the
-script choose the number of leaflets, the outline model and leaf collection, the bend spread, the
-size and the mesh resolution; the defaults are the models evaluated below. One leaflet takes
-about 20 s on a CPU.
+With a plain virtual environment (`requirements.txt`, exported from `uv.lock`):
+
+```bash
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && pip install -e . --no-deps
+python generate.py
+```
+
+With Docker, weights and data included (downloaded from the release and checked against
+`SHA256SUMS`; `--build-arg WITH_DATA=0` leaves the data out):
+
+```bash
+docker build -t tomato-leaf-gen .
+docker run --rm -v "$PWD/samples:/app/samples" tomato-leaf-gen                       # generate.py
+docker run --rm -v "$PWD/results:/app/results" tomato-leaf-gen python evaluate.py --quick
+```
+
+On a machine with an NVIDIA GPU and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/),
+add `--gpus all` to use it; without one everything runs on the CPU.
+
+### Generate
+
+`generate.py` writes `samples/leaf_000.obj` and the following ones (millimetres, base at the
+origin, tip along +y, upper side and underside as one closed surface, albedo textures in the
+`.mtl`) and `samples/viewer.html`, a 3D viewer that opens in any browser. The settings at the top
+of the script choose the number of leaflets, the outline model and leaf collection, the bend
+spread, the size and the mesh resolution; the defaults are the models evaluated below. One leaflet
+takes about 20 s on a CPU.
 
 ## Method
 
